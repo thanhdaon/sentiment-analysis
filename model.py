@@ -1,5 +1,7 @@
+import numpy as np
 import torch
 from torch import nn, load
+from torch.utils.data import Dataset, DataLoader
 from transformers import AutoModel, AutoTokenizer
 from vncorenlp import VnCoreNLP
 
@@ -12,6 +14,7 @@ tokenizer = AutoTokenizer.from_pretrained("vinai/phobert-base", use_fast=False)
 
 
 MAX_LEN = 150
+THRESHOLD = 0.9888538
 
 
 def segmentating_sentence(sentence):
@@ -30,6 +33,19 @@ def transform(sentence):
     attention_mask = encoded.get('attention_mask')
 
     return torch.Tensor(sequence), torch.Tensor(attention_mask)
+
+
+class RatingDataset(Dataset):
+    def __init__(self, sentences):
+        super(RatingDataset, self).__init__()
+        self.sentences = sentences
+
+    def __len__(self):
+        return len(self.sentences)
+
+    def __getitem__(self, idx):
+        sentence = self.sentences[idx]
+        return transform(sentence)
 
 
 class SentimentAnalyzer(nn.Module):
@@ -55,8 +71,31 @@ model.eval()
 
 def predict(sentence):
     sequence, attention_mask = transform(sentence)
-    print(type(sentence))
     with torch.no_grad():
-        logits = model(sequence, attention_mask)
+        logits = model(torch.unsqueeze(sequence.long(), dim=0),
+                       torch.unsqueeze(attention_mask.long(), dim=0))
 
-    print(logits)
+    prob = logits.sigmoid().tolist()[0][0]
+    return prob > THRESHOLD
+
+
+def predict_many(sentences):
+    all_logits = []
+
+    dataset = RatingDataset(sentences)
+    data_loader = DataLoader(dataset, 8)
+
+    for batch in data_loader:
+        b_input_ids, b_attn_mask = tuple(t.to(device) for t in batch)
+
+        with torch.no_grad():
+            logits = model(b_input_ids.long(), b_attn_mask.long())
+        all_logits.append(logits)
+
+    all_logits = torch.cat(all_logits, dim=0)
+    probs = all_logits.sigmoid().cpu().numpy()
+
+    preds = np.zeros_like(probs)
+    preds[:, 0] = np.where(probs[:, 0] > THRESHOLD, 1, 0)
+
+    return probs, preds

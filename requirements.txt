@@ -4,10 +4,14 @@ certifi==2020.12.5
 chardet==4.0.0
 click==7.1.2
 filelock==3.0.12
+Flask==1.1.2
 idna==2.10
 isort==5.8.0
+itsdangerous==1.1.0
+Jinja2==2.11.3
 joblib==1.0.1
 lazy-object-proxy==1.5.2
+MarkupSafe==1.1.1
 mccabe==0.6.1
 numpy==1.20.1
 packaging==20.9
@@ -26,4 +30,5 @@ transformers==4.4.2
 typing-extensions==3.7.4.3
 urllib3==1.26.4
 vncorenlp==1.0.3
+Werkzeug==1.0.1
 wrapt==1.12.1
